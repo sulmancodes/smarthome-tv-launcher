@@ -19,12 +19,16 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.ui.PlayerView;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
 /** TV-first home dashboard. All navigation is ordinary focusable Android views for reliable D-pad support. */
+@UnstableApi
 public class MainActivity extends Activity {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Runnable idle = () -> {
@@ -35,6 +39,9 @@ public class MainActivity extends Activity {
     private LinearLayout content;
     private TextView clock;
     private TextView cricketSummary;
+    private PlayerView cameraPreview;
+    private ExoPlayer cameraPlayer;
+    private final Runnable tick = new Runnable() { @Override public void run() { refreshClock(); main.postDelayed(this, 30_000L); } };
 
     @Override protected void onCreate(@Nullable Bundle state) {
         super.onCreate(state);
@@ -48,11 +55,14 @@ public class MainActivity extends Activity {
         super.onResume();
         refreshClock();
         refreshCricket();
+        startHomeCamera();
+        main.removeCallbacks(tick); main.post(tick);
         resetIdle();
     }
 
     @Override protected void onPause() {
         main.removeCallbacksAndMessages(null);
+        CameraPlayback.stop(cameraPreview,cameraPlayer); cameraPlayer=null;
         super.onPause();
     }
 
@@ -96,8 +106,16 @@ public class MainActivity extends Activity {
         row.addView(left,new LinearLayout.LayoutParams(0,-1,1.05f));
         TextView cameraTitle=label("LIVE CAMERA",13,0xFF69DCCB,Typeface.BOLD);
         left.addView(cameraTitle);
-        TextView camera=card("CCTV preview","Open your camera feed",0xFF18314A,()->openCamera());
-        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,0,1); cp.topMargin=dp(10); left.addView(camera,cp);
+        FrameLayout cameraBox=new FrameLayout(this);
+        GradientDrawable cameraBg=new GradientDrawable(); cameraBg.setColor(0xFF18314A); cameraBg.setCornerRadius(dp(18)); cameraBox.setBackground(cameraBg); cameraBox.setClipToOutline(true);
+        cameraBox.setFocusable(true); cameraBox.setClickable(true); cameraBox.setOnClickListener(v->openCamera());
+        cameraPreview=new PlayerView(this); cameraPreview.setUseController(false); cameraPreview.setBackgroundColor(0xFF101D2D);
+        cameraBox.addView(cameraPreview,new FrameLayout.LayoutParams(-1,-1));
+        TextView cameraOverlay=label("CCTV  ·  OPEN FULL SCREEN",13,Color.WHITE,Typeface.BOLD);
+        cameraOverlay.setBackgroundColor(0x99080D18); cameraOverlay.setPadding(dp(14),dp(10),dp(14),dp(10));
+        FrameLayout.LayoutParams cop=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM); cameraBox.addView(cameraOverlay,cop);
+        cameraBox.setOnFocusChangeListener((v,focus)->{v.setScaleX(focus?1.02f:1f);v.setScaleY(focus?1.02f:1f);});
+        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,0,1); cp.topMargin=dp(10); left.addView(cameraBox,cp);
         TextView cameraHint=label(CameraConfig.cameraUrl(this).isEmpty()?"Add a camera stream in Settings":"Camera ready · muted preview",12,0xFF9EB0C8,Typeface.NORMAL);
         LinearLayout.LayoutParams ch=new LinearLayout.LayoutParams(-1,-2); ch.topMargin=dp(8); left.addView(cameraHint,ch);
 
@@ -108,10 +126,14 @@ public class MainActivity extends Activity {
         right.addView(cricket,new LinearLayout.LayoutParams(-1,0,1));
         cricketSummary=label("Loading match information…",14,0xFFB8C9D8,Typeface.NORMAL);
         LinearLayout.LayoutParams csp=new LinearLayout.LayoutParams(-1,-2); csp.topMargin=dp(8); right.addView(cricketSummary,csp);
-        TextView media=card("MEDIA VISION","Live TV · Movies · Series",0xFF28304D,()->openMedia("live"));
+        TextView media=card("LIVE TV","Open Media Vision",0xFF28304D,()->openMedia("live"));
         LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,0,1); mp.topMargin=dp(14); right.addView(media,mp);
-        TextView mediaHint=label("Your playlists, your screen.",12,0xFF9EB0C8,Typeface.NORMAL);
-        LinearLayout.LayoutParams mh=new LinearLayout.LayoutParams(-1,-2); mh.topMargin=dp(8); right.addView(mediaHint,mh);
+        LinearLayout mediaRow=new LinearLayout(this);
+        LinearLayout.LayoutParams mrp=new LinearLayout.LayoutParams(-1,dp(76)); mrp.topMargin=dp(10); right.addView(mediaRow,mrp);
+        TextView movies=card("MOVIES","",0xFF24334A,()->openMedia("movies"));
+        TextView series=card("SERIES","",0xFF24334A,()->openMedia("series"));
+        LinearLayout.LayoutParams m1=new LinearLayout.LayoutParams(0,-1,1); mediaRow.addView(movies,m1);
+        LinearLayout.LayoutParams m2=new LinearLayout.LayoutParams(0,-1,1); m2.leftMargin=dp(10); mediaRow.addView(series,m2);
 
         LinearLayout bottom=new LinearLayout(this);
         bottom.setGravity(Gravity.CENTER_VERTICAL);
@@ -126,6 +148,13 @@ public class MainActivity extends Activity {
         refreshClock();
     }
 
+    private void startHomeCamera() {
+        CameraPlayback.stop(cameraPreview,cameraPlayer); cameraPlayer=null;
+        String url=CameraConfig.cameraEnabled(this)?CameraConfig.cameraUrl(this):"";
+        if(cameraPreview!=null && !url.isEmpty()) {
+            cameraPlayer=CameraPlayback.start(this,cameraPreview,url,null);
+        }
+    }
     private void refreshClock() {
         if(clock!=null) clock.setText(new SimpleDateFormat("EEE, d MMM  ·  h:mm a",Locale.getDefault()).format(new Date()));
     }
