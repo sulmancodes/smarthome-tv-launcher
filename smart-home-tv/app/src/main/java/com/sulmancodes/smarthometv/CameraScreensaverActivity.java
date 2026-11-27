@@ -15,7 +15,7 @@ import androidx.media3.ui.PlayerView;
 public class CameraScreensaverActivity extends Activity {
     private PlayerView view; private ExoPlayer player;
     @Override protected void onCreate(@Nullable Bundle b){super.onCreate(b);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        String url=CameraConfig.cameraUrl(this); if(url.isEmpty()){finish();return;}
+        String url=CameraConfig.cameraEnabled(this)?CameraConfig.cameraUrl(this):""; if(url.isEmpty()){finish();return;}
         FrameLayout root=new FrameLayout(this);root.setBackgroundColor(0xFF000000);
         view=new PlayerView(this);root.addView(view,new FrameLayout.LayoutParams(-1,-1));
         TextView name=new TextView(this);name.setText(CameraConfig.cameraName(this)+"  ·  LIVE");name.setTextColor(0xCCFFFFFF);name.setTextSize(14);name.setPadding(24,18,24,18);

@@ -32,7 +32,7 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Runnable idle = () -> {
-        if (CameraConfig.screensaverMinutes(this) > 0 && !CameraConfig.cameraUrl(this).isEmpty()) {
+        if (CameraConfig.cameraEnabled(this) && CameraConfig.screensaverMinutes(this) > 0 && !CameraConfig.cameraUrl(this).isEmpty()) {
             startActivity(new Intent(this, CameraScreensaverActivity.class));
         }
     };
@@ -169,7 +169,7 @@ public class MainActivity extends Activity {
         });
     }
     private void openCamera() {
-        if(CameraConfig.cameraUrl(this).isEmpty()) startActivity(new Intent(this,SettingsActivity.class));
+        if(!CameraConfig.cameraEnabled(this) || CameraConfig.cameraUrl(this).isEmpty()) startActivity(new Intent(this,SettingsActivity.class));
         else startActivity(new Intent(this,CameraScreensaverActivity.class).putExtra("preview",true));
     }
     private void openMedia(String route) {
